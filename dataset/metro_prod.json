@@ -1,0 +1,13 @@
+{
+	"name": "metro_prod",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "metcore_prod",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

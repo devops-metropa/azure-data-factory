@@ -1,0 +1,78 @@
+{
+	"name": "Json1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureBlobStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "jsonexample.json",
+				"container": "suscrip"
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"message": {
+					"type": "object",
+					"properties": {
+						"subject": {
+							"type": "string"
+						},
+						"body": {
+							"type": "object",
+							"properties": {
+								"contentType": {
+									"type": "string"
+								},
+								"content": {
+									"type": "string"
+								}
+							}
+						},
+						"toRecipients": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"emailAddress": {
+										"type": "object",
+										"properties": {
+											"address": {
+												"type": "string"
+											}
+										}
+									}
+								}
+							}
+						},
+						"ccRecipients": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"emailAddress": {
+										"type": "object",
+										"properties": {
+											"address": {
+												"type": "string"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"saveToSentItems": {
+					"type": "string"
+				}
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

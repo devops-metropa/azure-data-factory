@@ -1,0 +1,161 @@
+{
+	"name": "Suscription",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy Outstanding Report",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "EXECUTE [dbo].[USP_OutStandingReport] '2021-04-01', '2021-11-30', '39', '211', 'Mortgage Processing Department', 'Open';\n",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings",
+							"blockSizeInMB": 20
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"validateDataConsistency": true,
+					"logSettings": {
+						"enableCopyActivityLog": true,
+						"copyActivityLogSettings": {
+							"logLevel": "Warning",
+							"enableReliableLogging": false
+						},
+						"logLocationSettings": {
+							"linkedServiceName": {
+								"referenceName": "AzureBlobStorage1",
+								"type": "LinkedServiceReference"
+							}
+						}
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "metro_dev",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DataStorageTesting",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Stored procedure1",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[USP_OutStandingReport]",
+					"storedProcedureParameters": {
+						"endDate": {
+							"value": "2021-11-30",
+							"type": "DateTime"
+						},
+						"forTeam": {
+							"value": "",
+							"type": "String"
+						},
+						"openBalance": {
+							"value": "Open",
+							"type": "String"
+						},
+						"reasonTypeId": {
+							"value": "39",
+							"type": "Int32"
+						},
+						"startDate": {
+							"value": "2021-04-01",
+							"type": "DateTime"
+						},
+						"topicTypeId": {
+							"value": "211",
+							"type": "Int32"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "metcore",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Token": {
+				"type": "String",
+				"defaultValue": "eyJ0eXAiOiJKV1QiLCJub25jZSI6ImFUZlNtOGhjdEtXQ3dZWVZHa25kV2N2N0M0Vl9HVHhGR1ZEemRVQjhlcE0iLCJhbGciOiJSUzI1NiIsIng1dCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyIsImtpZCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyJ9.eyJhdWQiOiIwMDAwMDAwMy0wMDAwLTAwMDAtYzAwMC0wMDAwMDAwMDAwMDAiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC81YzdhY2E0Mi1mNWRhLTRlNjgtOTkxZi03YTE1YTY0OTE1NzEvIiwiaWF0IjoxNjgxNzY3NjM3LCJuYmYiOjE2ODE3Njc2MzcsImV4cCI6MTY4MTg1NDMzNywiYWNjdCI6MCwiYWNyIjoiMSIsImFpbyI6IkFUUUF5LzhUQUFBQXRjck9LMzFnd3d2TkdZODBLS3JlSDlxbDlDV3ptKzcyK3o1L3o1VEJweDRiTktFSFBRWGhBemNvYk5sSkpBTU0iLCJhbXIiOlsicHdkIl0sImFwcF9kaXNwbGF5bmFtZSI6IkdyYXBoIEV4cGxvcmVyIiwiYXBwaWQiOiJkZThiYzhiNS1kOWY5LTQ4YjEtYThhZC1iNzQ4ZGE3MjUwNjQiLCJhcHBpZGFjciI6IjAiLCJmYW1pbHlfbmFtZSI6Ik1lcmlkaWFuIiwiZ2l2ZW5fbmFtZSI6IlNvdXJjZSIsImlkdHlwIjoidXNlciIsImlwYWRkciI6IjU0LjIwNC43Ny4yMzciLCJuYW1lIjoiU291cmNlIE1lcmlkaWFuIiwib2lkIjoiNWRkMGJhYjAtMjZlYS00YTNiLThhYWItZWJhMDU3MjQ0Zjg1IiwicGxhdGYiOiIzIiwicHVpZCI6IjEwMDMyMDAxMjZGRTQ1NkUiLCJyaCI6IjAuQVc4QVFzcDZYTnIxYUU2Wkgzb1Zwa2tWY1FNQUFBQUFBQUFBd0FBQUFBQUFBQUJ2QUFzLiIsInNjcCI6Ik1haWwuU2VuZCBvcGVuaWQgcHJvZmlsZSBVc2VyLlJlYWQgZW1haWwiLCJzaWduaW5fc3RhdGUiOlsia21zaSJdLCJzdWIiOiJTSXNUUGlHSUNGRVFnRVpBbVhUNjJiZzI0dm5mS0RCX2VTV1RsLWNLcGxVIiwidGVuYW50X3JlZ2lvbl9zY29wZSI6Ik5BIiwidGlkIjoiNWM3YWNhNDItZjVkYS00ZTY4LTk5MWYtN2ExNWE2NDkxNTcxIiwidW5pcXVlX25hbWUiOiJkZXZvcHNAbWV0cm9wYS5jb20iLCJ1cG4iOiJkZXZvcHNAbWV0cm9wYS5jb20iLCJ1dGkiOiJ2RVFBZkFJaFQwMk9GT0F1bFFVdEFBIiwidmVyIjoiMS4wIiwid2lkcyI6WyJiNzlmYmY0ZC0zZWY5LTQ2ODktODE0My03NmIxOTRlODU1MDkiXSwieG1zX2NjIjpbIkNQMSJdLCJ4bXNfc3NtIjoiMSIsInhtc19zdCI6eyJzdWIiOiJTQU84Z1JvWHdzcU5TTUJPY2RDQlhtX2FRaS1UdjdrTHRhcXYzeTRkLUFZIn0sInhtc190Y2R0IjoxMzg4MDk2MDA5fQ.P2RQ35dJCFvreaKPpxXKeXDYQRKQr-8nC-sp3LXL_oeiJrhJbwMvQ1xnqcP1lyGN7msg-3bhszFpDMgxnDZ7FtScDDb2lNH4C8_uHS9A3MdYnVFzz1UcPGteRH6xMRdWU9TETLyS93b_uMOePHfPvkbwmNzMATUSzIoyQRZI7OqcmI6AHgblYBMvyk2OYan7mFWAee0QBphFZZFZ_vk1Ei4iJwkJDJe7BjOH_DW_Yyi0oFkb8aCYsyxmHKszqy7O72LE0cKRefXTPimeA7OJdwdCK8SBC_wtpbENdFprPzX_HIX-DkvjmsiQo5VRb2XoxinS4IZ82-1ZsOJvWWf5xg"
+			},
+			"contenttype": {
+				"type": "String",
+				"defaultValue": "application/json"
+			},
+			"EmailSender": {
+				"type": "string",
+				"defaultValue": "metro.report@metropa.com"
+			},
+			"AzureTenantId": {
+				"type": "string",
+				"defaultValue": "5c7aca42-f5da-4e68-991f-7a15a6491571"
+			},
+			"AzureAppClientId": {
+				"type": "string",
+				"defaultValue": "d783a960-2d88-4bc5-a4d7-d87fca137652"
+			},
+			"AzureAppClientSecret": {
+				"type": "string",
+				"defaultValue": "9e28Q~SVhuUd2lUlLsBQn-1W6B6EjBT.AZv7rcpE"
+			}
+		},
+		"variables": {
+			"filefullPath": {
+				"type": "String"
+			},
+			"contentBytes": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ZTest_POC"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-25T16:02:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

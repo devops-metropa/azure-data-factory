@@ -1,0 +1,113 @@
+{
+	"name": "graph_send_email_metropa_copy1",
+	"properties": {
+		"activities": [
+			{
+				"name": "GET AAD Token With Graph Scope",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:01:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('https://login.microsoftonline.com/',pipeline().parameters.AzureTenantId,'/oauth2/v2.0/token')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/x-www-form-urlencoded"
+					},
+					"body": {
+						"value": "@concat('\nclient_id=',pipeline().parameters.AzureAppClientId,'\n&client_secret=',pipeline().parameters.AzureAppClientSecret,'\n&scope=https://graph.microsoft.com/.default\n&grant_type=client_credentials'\n)",
+						"type": "Expression"
+					},
+					"httpRequestTimeout": "00:01:00"
+				}
+			},
+			{
+				"name": "POST Graph Send Mail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "GET AAD Token With Graph Scope",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat('https://graph.microsoft.com/v1.0/users/',pipeline().parameters.EmailSender,'/sendMail')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Authorization": {
+							"value": "@concat(string(activity('Get AAD Token With Graph Scope').output.token_type),' ',string(activity('Get AAD Token With Graph Scope').output.access_token))",
+							"type": "Expression"
+						},
+						"Content-Type": "application/json"
+					},
+					"body": {
+						"value": "@concat(\n    '{\n    \"message\": {\n        \"toRecipients\": [\n            {\n                \"emailAddress\": {\n                    \"address\": \"', pipeline().parameters.EmailRecipient, '\"\n                    }\n            }\n        ],\n        \"subject\": \"', pipeline().parameters.EmailSubject, '\",\n        \"importance\": \"normal\",\n        \"body\": {\n            \"contentType\": \"HTML\",\n            \"content\": \"', pipeline().parameters.EmailContentHTML, '\"\n         }\n    },\n    \"SaveToSentItems\": ', pipeline().parameters.EmailSaveToSentItems, '\n}'\n)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"AzureTenantId": {
+				"type": "String",
+				"defaultValue": "5c7aca42-f5da-4e68-991f-7a15a6491571"
+			},
+			"AzureAppClientId": {
+				"type": "String",
+				"defaultValue": "d783a960-2d88-4bc5-a4d7-d87fca137652"
+			},
+			"AzureAppClientSecret": {
+				"type": "String",
+				"defaultValue": "9e28Q~SVhuUd2lUlLsBQn-1W6B6EjBT.AZv7rcpE"
+			},
+			"EmailSender": {
+				"type": "string",
+				"defaultValue": "metro.report@metropa.com"
+			},
+			"EmailRecipient": {
+				"type": "string",
+				"defaultValue": "camilo.blandon@sourcemeridian.com"
+			},
+			"EmailSubject": {
+				"type": "string",
+				"defaultValue": "Test data factory"
+			},
+			"EmailContentHTML": {
+				"type": "string",
+				"defaultValue": "prueba ok data factory"
+			},
+			"EmailSaveToSentItems": {
+				"type": "string",
+				"defaultValue": "true"
+			}
+		},
+		"folder": {
+			"name": "ZTest_POC"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-25T16:02:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

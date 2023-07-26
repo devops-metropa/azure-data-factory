@@ -1,0 +1,22 @@
+{
+	"name": "RestServiceGraphMetropa",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "https://graph.microsoft.com/v1.0",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "AadServicePrincipal",
+			"servicePrincipalId": "d783a960-2d88-4bc5-a4d7-d87fca137652",
+			"tenant": "5c7aca42-f5da-4e68-991f-7a15a6491571",
+			"aadResourceId": "https://graph.microsoft.com",
+			"azureCloudType": "AzurePublic",
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQDI4ODUyOUFELUNGQTEtNDM4Ni1BNzhCLUQ2MjU2MTYyRERENV9mYzExMzM0Ni1jZmEwLTQ5YTYtODVlYy1jYzNhMzMzYzYzYTIiDQp9"
+		},
+		"connectVia": {
+			"referenceName": "integrationRuntime1",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

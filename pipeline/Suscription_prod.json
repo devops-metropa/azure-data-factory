@@ -1,0 +1,372 @@
+{
+	"name": "Suscription_prod",
+	"properties": {
+		"activities": [
+			{
+				"name": "Truncate table parameters",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "metcore_prod",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "TRUNCATE TABLE [subscription].[TBL_ExecutionParameters]"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "EXEC USP-ExecutionParameters",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Truncate table parameters",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "metcore_prod",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "EXEC [Subscription].[USP_ExecutionParameters] "
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Count Suscription",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Parameter Data Storage",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "metcore_prod",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "countCurrentSuscrip",
+									"type": "Int64",
+									"value": null,
+									"direction": "Output"
+								}
+							],
+							"type": "Query",
+							"text": "select  @countCurrentSuscrip = count(*) from [Subscription].[tbl_ExecutionParameters]\nwhere status=0"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Until1",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "Count Suscription",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(activity('Count Suscription').output.outputParameters.countCurrentSuscrip,0)",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "AuditStart SQL Task",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_prod",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "binacleId",
+												"type": "Int16",
+												"value": null,
+												"direction": "Output"
+											},
+											{
+												"name": "pipelineName",
+												"type": "String",
+												"value": {
+													"value": "@pipeline().Pipeline",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "startTime",
+												"type": "Datetime",
+												"value": {
+													"value": "@pipeline().TriggerTime",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Start] @binacleId, NULL, 'Suscription', 1, @pipelineName,@startTime, NULL, 0, '', 0, 'adf';"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Execute Pipeline1",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "AuditStart SQL Task",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "graph_send_email_prod",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"AzureTenantId": {
+										"value": "@activity('Parameter Data Storage').output.resultSets[0].rows[0].AzureTenantId",
+										"type": "Expression"
+									},
+									"AzureAppClientId": {
+										"value": "@activity('Parameter Data Storage').output.resultSets[0].rows[0].AzureAppClientId",
+										"type": "Expression"
+									},
+									"AzureAppClientSecret": {
+										"value": "@activity('Parameter Data Storage').output.resultSets[0].rows[0].AzureAppClientSecret",
+										"type": "Expression"
+									},
+									"AuditIntSkBinnacle": {
+										"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Audit Error",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Execute Pipeline1",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_prod",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "AuditIntSkBinnacle",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Error] @AuditIntSkBinnacle,0,NULL;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "AuditEnd SQL Task",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Execute Pipeline1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_prod",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "binnacleId2",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_End] @binnacleId2,0,NULL;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "Parameter Data Storage",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "EXEC USP-ExecutionParameters",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "metcore_prod",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"parameters": [
+								{
+									"name": "AzureTenantId",
+									"type": "String",
+									"value": "",
+									"direction": "Input"
+								},
+								{
+									"name": "AzureAppClientId",
+									"type": "String",
+									"value": "",
+									"direction": "Input"
+								},
+								{
+									"name": "AzureAppClientSecret",
+									"type": "String",
+									"value": "",
+									"direction": "Input"
+								},
+								{
+									"name": "EmailSender",
+									"type": "String",
+									"value": "",
+									"direction": "Input"
+								}
+							],
+							"type": "Query",
+							"text": "EXEC [Subscription].[USP_GetParameterAzureDataStorage] \n"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"folder": {
+			"name": "prod"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-25T16:02:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
