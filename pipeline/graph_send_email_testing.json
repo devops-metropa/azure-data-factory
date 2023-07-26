@@ -1,0 +1,968 @@
+{
+	"name": "graph_send_email_testing",
+	"properties": {
+		"activities": [
+			{
+				"name": "Script1",
+				"type": "Script",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "metcore_testing",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": "EXEC [Subscription].[USP_GetParameterSubscription2] "
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Script1",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Script1').output.resultSets[0].rows",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "GET AAD Token With Graph Scope",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.00:01:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('https://login.microsoftonline.com/',pipeline().parameters.AzureTenantId,'/oauth2/v2.0/token')",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/x-www-form-urlencoded"
+								},
+								"body": {
+									"value": "@concat('\nclient_id=',pipeline().parameters.AzureAppClientId,'\n&client_secret=',pipeline().parameters.AzureAppClientSecret,'\n&scope=https://graph.microsoft.com/.default\n&grant_type=client_credentials'\n)",
+									"type": "Expression"
+								},
+								"httpRequestTimeout": "00:01:00"
+							}
+						},
+						{
+							"name": "POST Graph Send Mail",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "GET AAD Token With Graph Scope",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set variable2",
+									"dependencyConditions": [
+										"Completed"
+									]
+								},
+								{
+									"activity": "Set variable3",
+									"dependencyConditions": [
+										"Completed"
+									]
+								},
+								{
+									"activity": "Set Subject",
+									"dependencyConditions": [
+										"Completed"
+									]
+								},
+								{
+									"activity": "Set Email",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"url": {
+									"value": "@concat('https://graph.microsoft.com/v1.0/users/',pipeline().parameters.EmailSender,'/sendMail')",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"headers": {
+									"Authorization": {
+										"value": "@concat(string(activity('Get AAD Token With Graph Scope').output.token_type),' ',string(activity('Get AAD Token With Graph Scope').output.access_token))",
+										"type": "Expression"
+									},
+									"Content-Type": "application/json"
+								},
+								"body": {
+									"value": "@concat(\n    '{\n    \"message\": {\n        \"toRecipients\": [\n            {\n                \"emailAddress\": {\n                    \"address\": \"', variables('emailRe'), '\"\n                    }\n            }\n        ],  \n        \"attachments\": [\n            {\n             \"@odata.type\": \"#microsoft.graph.fileAttachment\",\n             \"name\": \"', activity('Get Metadata1').output.itemName, '\",\n             \"contentType\": \"application/vnd.ms-excel\",\n             \"contentBytes\":\"', variables('b64'), '\"\n             }\n         ],\n        \"subject\": \"', variables('emailSubject'), '\",\n        \"importance\": \"normal\",\n        \"body\": {\n            \"contentType\": \"HTML\",\n            \"content\": \"', pipeline().parameters.EmailContentHTML, '\"\n         }\n    },\n    \"SaveToSentItems\": ', pipeline().parameters.EmailSaveToSentItems, '\n}'\n)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get Metadata1",
+							"type": "GetMetadata",
+							"dependsOn": [
+								{
+									"activity": "Copy Suscription File",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "DataStorageTesting",
+									"type": "DatasetReference",
+									"parameters": {
+										"fileName": {
+											"value": "@item().fileName",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"itemName",
+									"itemType",
+									"lastModified",
+									"contentMD5",
+									"size"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "Set variable2",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get Metadata1",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "path",
+								"value": {
+									"value": "@concat('https://filesuscription.blob.core.windows.net/suscrip/',activity('Get Metadata1').output.itemName)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Azure Function1",
+							"type": "AzureFunctionActivity",
+							"dependsOn": [
+								{
+									"activity": "AuditStart Statistics",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"functionName": {
+									"value": "@concat('HttpConvertB64_testing?blob_name=',activity('Get Metadata1').output.itemName)",
+									"type": "Expression"
+								},
+								"method": "POST",
+								"headers": {
+									"Conten-Type": "application/json"
+								},
+								"body": {
+									"value": "@concat('{\"blob_name\":\"',activity('Get Metadata1').output.itemName,'\"}')",
+									"type": "Expression"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureFunctionTesting",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Set variable3",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Azure Function1",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "b64",
+								"value": {
+									"value": "@activity('Azure Function1').output.base64",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Update Parameter Status",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "AuditEnd Statistics",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "subscriptionConfigId",
+												"type": "Int64",
+												"value": {
+													"value": "@item().SubscriptionConfigID",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXEC [Subscription].[USP_UpdateSubscriptionList] @subscriptionConfigId"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Copy Suscription File",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Set variable4",
+									"dependencyConditions": [
+										"Completed"
+									]
+								},
+								{
+									"activity": "Set variable4_copy1",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@variables('Query')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings",
+										"blockSizeInMB": 20
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"validateDataConsistency": true,
+								"logSettings": {
+									"enableCopyActivityLog": true,
+									"copyActivityLogSettings": {
+										"logLevel": "Warning",
+										"enableReliableLogging": false
+									},
+									"logLocationSettings": {
+										"linkedServiceName": {
+											"referenceName": "AzureBlobStorage1",
+											"type": "LinkedServiceReference"
+										}
+									}
+								},
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "metro_testing",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DataStorageTesting",
+									"type": "DatasetReference",
+									"parameters": {
+										"fileName": {
+											"value": "@item().fileName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Set variable4",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "AuditStart SQL Task",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ContainerName",
+								"value": {
+									"value": "@item().LocationContainer",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable4_copy1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Query",
+								"value": {
+									"value": "@item().QueryString",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set Subject",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "emailSubject",
+								"value": {
+									"value": "@item().subjectEmail",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set Email",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "emailRe",
+								"value": {
+									"value": "@item().emails",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Audit Error",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Copy Suscription File",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "AuditIntSkBinnacle",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "TaskFailed",
+												"type": "String",
+												"value": {
+													"value": "@activity('Copy Suscription File').output",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Error] @AuditIntSkBinnacle,0,@TaskFailed;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "AuditStart SQL Task",
+							"type": "Script",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "binnacleId",
+												"type": "Int64",
+												"value": null,
+												"direction": "Output"
+											},
+											{
+												"name": "pipelineName",
+												"type": "String",
+												"value": {
+													"value": "@pipeline().Pipeline",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "startTime",
+												"type": "Datetime",
+												"value": {
+													"value": "@pipeline().TriggerTime",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "binnacleFatherId",
+												"type": "Int64",
+												"value": {
+													"value": "@pipeline().parameters.AuditIntSkBinnacle",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Start] @binnacleId, @binnacleFatherId, 'Suscription', 1, @pipelineName,@startTime, NULL, 0, '', 0, 'adf';"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Audit Error_SendEmail",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "POST Graph Send Mail",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "AuditIntSkBinnacle",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "TaskFailed",
+												"type": "String",
+												"value": {
+													"value": "@activity('POST Graph Send Mail').output",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Error] @AuditIntSkBinnacle,0,@TaskFailed;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "AuditEnd SQL Task",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Update Parameter Status",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "binnacleId2",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_End] @binnacleId2,0,NULL;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "Audit Error_Function",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Azure Function1",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "AuditIntSkBinnacle",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "TaskFailed",
+												"type": "String",
+												"value": {
+													"value": "@activity('Azure Function1').output",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE [Audit].[USP_Binnacle_Error] @AuditIntSkBinnacle,0,@TaskFailed;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "AuditStart Statistics",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Set variable2",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "binnacleId",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart SQL Task').output.resultSets[0].rows[0].BinnacleId",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "startTime",
+												"type": "Datetime",
+												"value": {
+													"value": "@pipeline().TriggerTime",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "auditItem",
+												"type": "Int64",
+												"value": null,
+												"direction": "Output"
+											},
+											{
+												"name": "concatSubscription",
+												"type": "String",
+												"value": {
+													"value": "@item().fileName",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE Audit.USP_BinnacleStatistics_Start @binnacleId, @auditItem, @startTime, @concatSubscription;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "AuditEnd Statistics",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "POST Graph Send Mail",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "metcore_testing",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"parameters": [
+											{
+												"name": "auditItem",
+												"type": "Int64",
+												"value": {
+													"value": "@activity('AuditStart Statistics').output.resultSets[0].rows[0].auditItem",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "startTime",
+												"type": "Datetime",
+												"value": {
+													"value": "@pipeline().TriggerTime",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											},
+											{
+												"name": "concatSubscription",
+												"type": "String",
+												"value": {
+													"value": "@item().fileName",
+													"type": "Expression"
+												},
+												"direction": "Input"
+											}
+										],
+										"type": "Query",
+										"text": "EXECUTE Audit.USP_BinnacleStatistics_End  @auditItem, @startTime, @concatSubscription, 0, 0, 0, 0, 0;"
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"AzureTenantId": {
+				"type": "String",
+				"defaultValue": "5c7aca42-f5da-4e68-991f-7a15a6491571"
+			},
+			"AzureAppClientId": {
+				"type": "String",
+				"defaultValue": "d783a960-2d88-4bc5-a4d7-d87fca137652"
+			},
+			"AzureAppClientSecret": {
+				"type": "String",
+				"defaultValue": "9e28Q~SVhuUd2lUlLsBQn-1W6B6EjBT.AZv7rcpE"
+			},
+			"EmailSender": {
+				"type": "string",
+				"defaultValue": "metro.report@metropa.com"
+			},
+			"EmailRecipient": {
+				"type": "string",
+				"defaultValue": "camilo.blandon@sourcemeridian.com"
+			},
+			"EmailSubject": {
+				"type": "string",
+				"defaultValue": "Subscription Report"
+			},
+			"EmailContentHTML": {
+				"type": "string",
+				"defaultValue": "(Testing) Subscription attachment"
+			},
+			"EmailSaveToSentItems": {
+				"type": "string",
+				"defaultValue": "true"
+			},
+			"LocalContainer": {
+				"type": "string",
+				"defaultValue": "Outstanding"
+			},
+			"QueryString": {
+				"type": "string",
+				"defaultValue": "EXECUTE [dbo].[USP_OutStandingReport] '2021-04-01', '2021-11-30', '39', '211', 'Mortgage Processing Department', 'Open';"
+			},
+			"AuditIntSkBinnacle": {
+				"type": "int",
+				"defaultValue": 14
+			}
+		},
+		"variables": {
+			"filefullPath": {
+				"type": "String"
+			},
+			"contentBytes": {
+				"type": "String"
+			},
+			"contentBytes2": {
+				"type": "Array"
+			},
+			"path": {
+				"type": "String"
+			},
+			"b64": {
+				"type": "String"
+			},
+			"b642": {
+				"type": "Array"
+			},
+			"b64json": {
+				"type": "String"
+			},
+			"ContainerName": {
+				"type": "String"
+			},
+			"Query": {
+				"type": "String"
+			},
+			"emailRe": {
+				"type": "String"
+			},
+			"emailSubject": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "testing"
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-07-25T16:02:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,9 @@
+{
+	"name": "adf-poc-suscrip",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "00c182a8-743e-467d-8223-6d7c6e1c0146",
+		"tenantId": "98b562e5-b552-4fa5-bd7f-c9023043ab2f"
+	}
+}
